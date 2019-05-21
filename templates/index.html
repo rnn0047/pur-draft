@@ -1,0 +1,62 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Test Page to run AWS backend for Proj TStyle{% endblock %}
+
+{% block navbar %}
+<div class="navbar navbar-fixed-top">
+  <!-- ... -->
+</div>
+{% endblock %}
+
+{% block content %}
+  <h1>Test HTML for validating AWS Setup</h1>
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.js"></script>
+  <form class="form-inline center-block" action="http://localhost:5000/submit" method=POST enctype="multipart/form-data">
+    <div class="form-group">
+      <div class="d-flex justify-content-center">
+        <select name=styleID method="GET" action="/">
+          {% for style in styles %}
+          <option value = "{{style}}" SELECTED> {{style}}</option>
+          {%endfor %}
+        </select>
+      </div>
+        <!--- Commented out
+        <div class="mb-4">
+            <img src="https://mdbootstrap.com/img/Photos/Others/placeholder.jpg" class="img-fluid" alt="example placeholder" width=300 height=150>
+        </div>
+        <div class="d-flex justify-content-center">
+            <div class="btn btn-mdb-color btn-rounded float-left">
+                <span>Choose Style</span>
+                <input type="file" name="styleFile"/>
+            </div>
+        </div>
+        -->
+    </div>
+    <div class="form-group">
+      <div class="d-flex justify-content-center">
+        <div class="btn btn-mdb-color btn-rounded float-left">
+           <span>Add photo</span>
+           <input type="file" name ="photoFile" id="profile-img">
+           <img src="" id="profile-img-tag" width="200px" />
+           
+           <script type="text/javascript">
+            function readURL(input) {
+              if (input.files && input.files[0]) {
+                var reader = new FileReader();
+
+                reader.onload = function (e) {
+                  $('#profile-img-tag').attr('src', e.target.result);
+                }
+                reader.readAsDataURL(input.files[0]);
+              }
+            }
+            $("#profile-img").change(function(){
+              readURL(this);
+            });
+           </script>
+
+        </div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Submit</button>
+  </form>
+{% endblock %}

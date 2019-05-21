@@ -1,0 +1,6 @@
+py35
+py35_env
+__pycache__
+psofai-aws.config
+.pyc
+.vscode
