@@ -1,0 +1,27 @@
+#   https://docs.aws.amazon.com/codedeploy/latest/userguide/app-spec-ref.html
+version: 0.0
+os: linux
+files:
+  - source: /
+    destination: /home/ec2-user/pur-draft
+permissions:
+  - object: /home/ec2-user/pur-draft
+    pattern: "**"
+    owner: ec2-user
+    group: ec2-user
+# If you are not running any commands on the Amazon EC2 instance, then remove
+#   the "hooks" section altogether. A blank or incomplete "hooks" section
+#   may cause associated deployments to fail.
+hooks:
+  ApplicationStop:
+    - location: deploy_scripts/stop.sh
+      runas: ec2-user
+  BeforeInstall:
+    - location: deploy_scripts/preinstall.sh
+      runas: ec2-user
+  AfterInstall:
+    - location: deploy_scripts/postinstall.sh
+      runas: ec2-user
+  ApplicationStart:
+    - location: deploy_scripts/start.sh
+      runas: ec2-user
