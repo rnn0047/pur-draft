@@ -2,7 +2,19 @@
 version: 0.0
 os: linux
 files:
-  - source: /
+  - source: tools
+    destination: /home/ec2-user/pur-draft/tools
+  - source: templates
+    destination: /home/ec2-user/pur-draft/templates
+  - source: deploy_scripts
+    destination: /home/ec2-user/pur-draft/deploy_scripts
+  - source: xform
+    destination: /home/ec2-user/pur-draft/xform
+  - source: app.py
+    destination: /home/ec2-user/pur-draft
+  - source: requirements.txt
+    destination: /home/ec2-user/pur-draft
+  - source: .env
     destination: /home/ec2-user/pur-draft
 permissions:
   - object: /home/ec2-user/pur-draft
