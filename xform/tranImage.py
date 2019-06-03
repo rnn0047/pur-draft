@@ -1,19 +1,21 @@
 from __future__ import print_function
-import sys
-sys.path.insert(0, 'src')
-import transform
+# from storage_utils import StorageUtils
+import json
 import numpy as np
 import os
 import scipy.misc
+import subprocess
+import sys
 import tensorflow as tf
-from utils import save_img, get_img, exists, list_files
+import time
+from PIL import Image
 from argparse import ArgumentParser
 from collections import defaultdict
-import time
-import json
-import subprocess
-from storage_utils import StorageUtils
-
+from resizeimage import resizeimage
+from src.transform import net, _conv_layer, _conv_tranpose_layer, _residual_block, _instance_norm, _conv_init_vars
+from src.utils import save_img, get_img, exists, list_files
+from tools.config import MODELDIR, STYLED_FOLDER
+sys.path.insert(0, 'src')
 
 class XForm:
     """TODO not a pretty code -- bad usage of assert in production code, should fix
@@ -43,7 +45,8 @@ class XForm:
             img_placeholder = tf.placeholder(tf.float32, shape=batch_shape,
                                              name='img_placeholder')
 
-            preds = transform.net(img_placeholder)
+            #preds = transform.net(img_placeholder)
+            preds = net(img_placeholder)
             saver = tf.train.Saver()
             if os.path.isdir(checkpoint_dir):
                 ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
@@ -70,7 +73,7 @@ class XForm:
                 else:
                     X = data_in[pos:pos+batch_size]
 
-                _preds = sess.run(preds, feed_dict={img_placeholder:X})
+                _preds = sess.run(preds, feed_dict={img_placeholder: X})
                 for j, path_out in enumerate(curr_batch_out):
                     save_img(path_out, _preds[j])
 
@@ -78,14 +81,15 @@ class XForm:
             remaining_out = paths_out[num_iters*batch_size:]
         if len(remaining_in) > 0:
             self.ffwd(remaining_in, remaining_out, checkpoint_dir,
-                device_t=device_t, batch_size=1)
+                      device_t=device_t, batch_size=1)
 
     def ffwd_to_img(self, in_path, out_path, checkpoint_dir, device='/cpu:0'):
         paths_in, paths_out = [in_path], [out_path]
-        self.ffwd(paths_in, paths_out, checkpoint_dir, batch_size=1, device_t=device)
+        self.ffwd(paths_in, paths_out, checkpoint_dir,
+                  batch_size=1, device_t=device)
 
     def ffwd_different_dimensions(self, in_path, out_path, checkpoint_dir,
-                device_t=DEVICE, batch_size=4):
+                                  device_t=DEVICE, batch_size=4):
         in_path_of_shape = defaultdict(list)
         out_path_of_shape = defaultdict(list)
         for i in range(len(in_path)):
@@ -97,7 +101,7 @@ class XForm:
         for shape in in_path_of_shape:
             print('Processing images of shape %s' % shape)
             self.ffwd(in_path_of_shape[shape], out_path_of_shape[shape],
-                checkpoint_dir, device_t, batch_size)
+                      checkpoint_dir, device_t, batch_size)
 
     def process_image(self, imageFile, styleID, upload=False):
         """
@@ -111,59 +115,80 @@ class XForm:
 
         the renderer will decice how to display
         """
-        modelRoot = os.environ.get('MODELDIR', False)
+        modelRoot = MODELDIR
         if modelRoot == False:
             return False, "env variable MODELDIR is not set"
         if styleID == 'tony':
-            checkpoint_dir = os.path.join(modelRoot,"tonyCheck/")
+            checkpoint_dir = os.path.join(modelRoot, "tonyCheck/")
         elif styleID == 'tigris':
-            checkpoint_dir = os.path.join(modelRoot,"tigrisCheck/")
+            checkpoint_dir = os.path.join(modelRoot, "tigrisCheck/")
         elif styleID == 'stripes':
-            checkpoint_dir = os.path.join(modelRoot,"stripeCheck/")
+            checkpoint_dir = os.path.join(modelRoot, "stripeCheck/")
         else:
             return False, "Style Model not supported"
         outFile = None
-        outExt  = '_{}_xform.jpg'.format(styleID)
-        if '.photo' in imageFile:
-            fileName = imageFile.split('.photo')[0]
-        else:
-            fileName = imageFile.split('.')[0]
-        remoteFile = fileName.rsplit('/')[-1] + outExt
-        outFile    = fileName + outExt
+        out_folder = STYLED_FOLDER
+        fileName = imageFile.rsplit('/')[-1]
+        outFile = os.path.join(out_folder, fileName)
 
         if os.path.exists(outFile):
             os.remove(outFile)
 
-        #TODO add GPU enable from config file later on
-        self.ffwd_to_img(imageFile, outFile, checkpoint_dir) #, device=opts.device)
+        ##Fix for large size image file
+        imageFile_f = open(imageFile, 'rb')
+        image = Image.open(imageFile_f)
+        w, h = image.size
+        wSize, hSize = 1080, 1080
+        if w > 1080 or h > 1080:
+            if w > 1080 and h <= 1080:
+                w_per = 1080 / float(w)
+                hSize = int (float(h) * w_per)
+            elif h > 1080 and w <= 1080:
+                h_per = 1080 / float(h)
+                wSize = int (float(w) * h_per)
+            else: #force one side to 1080
+                denominator = float(h) if h > w else float(w)
+                per = 1080 / denominator
+                hSize = 1080 if h > w else int(per * h)
+                wSize = 1080 if w > h else int(per * w)
+            image = image.resize( (wSize, hSize), Image.ANTIALIAS)
+            imageFile_f.close()
+            image.save( imageFile, image.format )
+        else:
+            imageFile_f.close()
+
+        # TODO add GPU enable from config file later on
+        # , device=opts.device)
+        self.ffwd_to_img(imageFile, outFile, checkpoint_dir)
         if os.path.isfile(outFile) and os.path.getsize(outFile) > 1000:
             msg = "outfile generated as: {}".format(outFile)
-            if upload == True:
-                su = StorageUtils()
-                st, uploadMsg = su.fileUpload(outFile, remoteFile)
-                msg = msg + "; "+ uploadMsg
-            return True, msg
-        return False, "Failed in XFORM"
+            # if upload == True:
+            #     su = StorageUtils()
+            #     st, uploadMsg = su.fileUpload(outFile, remoteFile)
+            #     msg = msg + "; " + uploadMsg
+            return True, outFile, msg
+        return False, None, "Failed in XFORM"
 
 
 def main():
     xf = XForm()
     tic = time.time()
-    status, msg = xf.process_image('/tmp/group.jpg', 'tony') #, True)
+    status, msg = xf.process_image('/tmp/group.jpg', 'tony')  # , True)
     print("status = {}, Msg = {}".format(status, msg))
     toc = time.time()
     print(toc - tic)
 
-    #multiple file processing - not required
+    # multiple file processing - not required
     #files = list_files(opts.in_path)
     #full_in = [os.path.join(opts.in_path,x) for x in files]
     #full_out = [os.path.join(out_path,x) for x in files]
-    #if opts.allow_different_dimensions:
+    # if opts.allow_different_dimensions:
     #    xf.ffwd_different_dimensions(full_in, full_out, checkpoint_dir,
     #            device_t=opts.device, batch_size=opts.batch_size)
-    #else :
+    # else :
     #    ffwd(full_in, full_out, checkpoint_dir, device_t=opts.device,
     #            batch_size=opts.batch_size)
+
 
 if __name__ == '__main__':
     main()
