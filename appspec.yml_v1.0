@@ -4,6 +4,8 @@ os: linux
 files:
   - source: tools
     destination: /home/ec2-user/tiger-styles/tools
+  - source: backend
+    destination: /home/ec2-user/tiger-styles/backend
   - source: frontend
     destination: /home/ec2-user/tiger-styles/frontend
   - source: deploy_scripts
@@ -13,8 +15,6 @@ files:
   - source: instructions
     destination: /home/ec2-user/tiger-styles/instructions
   - source: app.py
-    destination: /home/ec2-user/tiger-styles
-  - source: requirements.txt
     destination: /home/ec2-user/tiger-styles
   - source: README.md
     destination: /home/ec2-user/tiger-styles
@@ -30,17 +30,16 @@ permissions:
 # If you are not running any commands on the Amazon EC2 instance, then remove
 #   the "hooks" section altogether. A blank or incomplete "hooks" section
 #   may cause associated deployments to fail.
-#   for version 2.0 ++, completely remove the hooks
-#hooks:
-#  ApplicationStop:
-#    - location: deploy_scripts/stop.sh
-#      runas: ec2-user
-#  BeforeInstall:
-#    - location: deploy_scripts/preinstall.sh
-#      runas: ec2-user
-#  AfterInstall:
-#    - location: deploy_scripts/postinstall.sh
-#      runas: ec2-user
-#  ApplicationStart:
-#    - location: deploy_scripts/start.sh
-#      runas: ec2-user
+hooks:
+  ApplicationStop:
+    - location: deploy_scripts/stop.sh
+      runas: ec2-user
+  BeforeInstall:
+    - location: deploy_scripts/preinstall.sh
+      runas: ec2-user
+  AfterInstall:
+    - location: deploy_scripts/postinstall.sh
+      runas: ec2-user
+  ApplicationStart:
+    - location: deploy_scripts/start.sh
+      runas: ec2-user

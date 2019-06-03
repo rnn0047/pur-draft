@@ -1,112 +1,81 @@
-# flask app using s3 to store files
-import json
 import os
 import logging
-import uuid
-from flask import Flask, render_template, request, redirect, url_for
-from flask_bootstrap import Bootstrap
-from werkzeug import secure_filename
-from tools.config import UPLOAD_FOLDER
-from tools.storage_utils import StorageUtils
-from xform.tranImage import XForm
-""" Notes
-    1. TODO - big brother Lambda function to delete all obj older than 12 hours
-    2. UPLOAD_FOLDER is temp folder for all interim processing
-"""
+import requests
+import json
 
-FILENAME_KEYS = ['.photo', '.style']
+from flask import Flask, request, render_template, jsonify, redirect, url_for
+from flask_cors import CORS
+from flask_socketio import SocketIO, emit
+from werkzeug import secure_filename
+
+from tools.config import UPLOAD_FOLDER, CONTENT_FOLDER, STYLED_FOLDER
+# from tools.storage_utils import StorageUtils
+
+from xform.tranImage import XForm
+
+# Flask
+app = Flask(__name__,
+            static_folder="./frontend/dist/static",
+            template_folder="./frontend/dist")
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# su = StorageUtils()
 ALLOWED_EXTENSIONS = set(['png', 'ico', 'jpg', 'jpeg', 'gif'])
 
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-Bootstrap(app)
-#app.jinja_env.filters['file_type'] = file_type
-su = StorageUtils()
-@app.route('/')
-def index():
-    styles = ['tony', 'tigris', 'stripes']
-    return render_template('index.html', styles = styles)
+# CORS Middleware
+cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app)
+# app.config['CORS_HEADERS'] = 'Content-Type'
+
+# Socket.io Middleware
+socketio = SocketIO(app)
+
+
+@socketio.on('upload', namespace='/style')
+def image_upload(clientId, styleId, contentImage):
+    if (contentImage):
+        # TODO put this in try catch block and feature to upload / download file from S3
+        fileName = "{}.jpg".format(clientId)
+        fileWPath = os.path.join(CONTENT_FOLDER, fileName)
+
+        f = open(fileWPath, 'wb')
+        f.write(contentImage)
+        f.close()
+
+        print("file uploaded as {} and saved locally".format(fileWPath))
+        print(styleId)
+
+        xf = XForm()
+        status, outputImage, msg = xf.process_image(fileWPath,
+                                                    styleId, False)
+        if status == True:
+            # convert the output image into a binary blob
+            os.remove(fileWPath)
+            f = open(outputImage, 'rb')
+            styledImageBlob = f.read()
+            f.close()
+            print("styled file is available here: {}".format(outputImage))
+            emit('success', styledImageBlob, namespace='/style')
+        else:
+            emit("error", msg, namespace='/style')
+
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def catch_all(path):
+    #if app.debug:
+    #    print("### am i entering here ###")
+    #    return requests.get('http://localhost:8080/{}'.format(path)).text
+    return render_template("index.html")
+
 
 def allowed_file(filename):
     return '.' in filename and \
-            filename.rsplit('.',1)[1].lower() in ALLOWED_EXTENSIONS
+        filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-@app.route("/submit", methods=['POST'])
-def postFiles():
-    if 'styleFile' not in request.files and 'photoFile' not in request.files:
-        return "No file key's present for upload in request.files"
-    styleID = 'tony'
-    photo = request.files['photoFile']
-    userID = None
-
-    if (styleID != None ) and \
-       (photo.filename != None and len(photo.filename) > 2) :
-        userID = uuid.uuid1().hex
-        if allowed_file(photo.filename):
-            filename    = secure_filename(photo.filename)
-            fileWPath   = os.path.join(UPLOAD_FOLDER, filename)
-            photo.save(fileWPath)
-            objName     = userID + ".photo"
-            status, msg = su.fileUpload(fileWPath, objName)
-            if status == False:
-                return("failed uploading file to S3")
-            logging.info("fileUpload - {}".format(msg))
-            os.remove(fileWPath)
-        else:
-            logging.info("File {} not acceptable".format(photo.filename))
-    else:
-        return redirect("/")
-
-    messages = json.dumps({"userID": userID, "styleID": styleID})
-    return redirect(url_for('.transformPhoto', messages = messages))
-
-@app.route("/xForm")
-def transformPhoto():
-    messages = request.args['messages']
-    messages = json.loads(messages)
-    #print("messages = {}".format(messages))
-    userID = messages['userID']
-    styleID = messages['styleID']
-
-    remoteFile = userID + ".photo"
-    localFile = os.path.join(UPLOAD_FOLDER, remoteFile)
-    status, msg = su.downloadFile(remoteFile, localFile)
-    if status == False:
-        logging.error("Error in fileDownload {}".format(msg))
-        return "Couldn't download user {} file from S3".format(userID)
-    #For now lets keep the style data with the deployment
-    xf = XForm()
-    status, msg = xf.process_image(localFile, styleID, True)
-    if status == False:
-        return "Failed xforming the image, Reason: {}".format(msg)
-    #outphoto should be saved into S3 as userID + outphoto
-    #remove local file after rendering ??
-    messages = json.dumps({"userID": userID, \
-                            "styleID": styleID })
-    return redirect(url_for('.displayXForm', messages = messages))
-
-@app.route("/xFormPhoto")
-def displayXForm():
-    messages = request.args['messages']
-    messages = json.loads(messages)
-    userID = messages['userID']
-    styleID = messages['styleID']
-    #not sure why this gives error
-    infile = os.path.join(UPLOAD_FOLDER, userID + ".photo")
-    outfile = os.path.join(UPLOAD_FOLDER, userID + "_{}_xform.jpg".format(styleID))
-    print("inf = {}, out = {}".format(infile, outfile))
-    return render_template('xform.html', infile = infile, outfile = outfile)
-
-@app.route("/listFiles")
-def listFiles():
-    """
-    Utility function to check content of the S3
-    """
-    my_bucket   = su._getBucketObj()
-    summaries   = su.listFiles()
-    return render_template('listFiles.html', my_bucket=my_bucket,
-            files=summaries)
 
 if __name__ == "__main__":
+    #app.run(debug=True)
+    #socketio.run(app, debug=True)
+    #app.run(host='0.0.0.0', port='8080')
     app.run()
-
