@@ -26,8 +26,8 @@ python3 -m venv venv_vue
 source venv_vue/bin/activate
 pip install -r requirements.txt
 
-# setup environment
-export PROJ_LOC=tiger-styles
+# setup environment for local run
+export PROJ_LOC=pur-draft
 export PROJ_ROOT=$HOME/$PROJ_LOC
 export MODELDIR=$PROJ_ROOT/xform
 export PYTHONPATH=$PROJ_ROOT:$PROJ_ROOT/xform:$PROJ_ROOT/tools:$PROJ_ROOT/xform/src
@@ -35,4 +35,4 @@ export PYTHONPATH=$PROJ_ROOT:$PROJ_ROOT/xform:$PROJ_ROOT/tools:$PROJ_ROOT/xform/
 #run app on localhost:5000 or localhost:8080 (check app.py and frontend/.env)
 cd $PROJ_ROOT
 python3 app.py
-![alt text](https://raw.githubusercontent.com/rnn0047/pur-draft/tiger-style.png)
+[alt text](https://raw.githubusercontent.com/rnn0047/pur-draft/tiger-style.png)
