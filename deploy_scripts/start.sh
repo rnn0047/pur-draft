@@ -1,12 +1,17 @@
 #!/bin/bash
-export PROJ_ROOT=/home/ec2-user/pur-draft
+export PROJ_ROOT=/home/ec2-user/tiger-styles
 export MODELDIR=$PROJ_ROOT/xform
 export PYTHONPATH=$PROJ_ROOT:$PROJ_ROOT/xform:$PROJ_ROOT/tools:$PROJ_ROOT/xform/src
 cd $PROJ_ROOT
+#do requirements.install
 #<---for local run block; uncomment below 3 lines -->
 #python3 -m venv py35_env
 #source py35_env/bin/activate
-#flask run
+#kick off the flask app locally
+#mkdir /home/ec2-user/log
+#export LOGDIR=/home/ec2-user/log
+#python3 app.py >$LOGDIR/logfile.txt 2>&1 &
+#
 
 #<-- AWS setup block ---->
 #run below commands before entering virtual env -
@@ -32,6 +37,8 @@ cd $PROJ_ROOT
 #python3 -m venv py35_env
 #source py35_env/bin/activate
 #add .env contents
+#do away with gunicorn??
 #gunicorn app:app -b localhost:8000 &
+#python3 app.py
 
 echo "Ready to rumble .. set env contents and kick off the run"

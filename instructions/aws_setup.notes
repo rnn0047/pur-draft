@@ -1,0 +1,103 @@
+
+Run below codedeploy setup prior to initiating deployments
+-----
+sudo yum -y update
+sudo yum -y install ruby
+sudo yum -y install wget
+wget https://aws-codedeploy-us-east-2.s3.us-east-2.amazonaws.com/latest/install
+chmod +x ./install
+sudo ./install auto
+sudo service codedeploy-agent status
+
+Post code deployment run below
+solve node and npm issues
+------
+curl -o- https://raw.githubusercontent.com/creationix/nvm/ v0.32.0/install.sh | bash
+. ~/.nvm/nvm.sh
+nvm install 10.15.3
+
+curl -sL https://rpm.nodesource.com/setup_6.x | sudo -E  bash -
+sudo yum install nodejs --enablerepo=nodesource
+
+to get pip3
+---
+curl -O https://bootstrap.pypa.io/get-pip.py
+python3 get-pip.py --user
+update ~/.bashrc to add "export PATH="/home/ec2-user/.local/bin":$PATH
+
+install frontend / npm
+---------
+cd frontend
+npm install
+#  build for production/Flask with minification
+npm run build
+
+setup python virtual env inside PROJ_ROOT
+---
+cd $PROJ_ROOT
+python3 -m venv venv_vue
+source venv_vue/bin/activate
+#cp backend/requirements.txt .
+pip install -r requirements.txt
+
+Prepare servers
+------
+Make changes to the code as below -->
+inside backend/.env.production 
+VUE_APP_HOST=ec2-3-86-43-49.compute-1.amazonaws.com #name of the ec1 instance public dns
+VUE_APP_PORT=80 #this is the websocket port make sure its open inside ec2 security group for both inbound and outbound traffic
+
+to setup gunicorn server
+-------
+sudo cp instructions/tiger-styles.conf /etc/init/tiger-styles.conf
+sudo initctl reload-configuration
+sudo initctl list
+sudo initctl start tiger-styles
+
+to setup nginx
+----
+sudo yum install nginx
+sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bkup
+sudo vim /etc/nginx/nginx.conf
+refer changes inside $PROJ_ROOT/instructions/nginx.conf and replicate them in above file
+sudo sevice nginx restart
+
+system permissions
+---
+change access permissions on /var/log/nginx
+give 777 permissions to $PROJ_ROOT and $PROJ_ROOT/styled and $PROJ_ROOT/content
+
+to run manual stuff on ec2 instance copy below to .bashrc
+-----
+# .bashrc
+
+# Source global definitions
+if [ -f /etc/bashrc ]; then
+	. /etc/bashrc
+fi
+
+# User specific aliases and functions
+
+export NVM_DIR="/home/ec2-user/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"  # This loads nvm
+export PATH="/home/ec2-user/.local/bin":$PATH
+alias python='/home/ec2-user/tiger-styles/venv_vue/bin/python3'
+export PROJ_ROOT=/home/ec2-user/tiger-styles
+export MODELDIR=$PROJ_ROOT/xform
+export PYTHONPATH=$PROJ_ROOT:$PROJ_ROOT/xform:$PROJ_ROOT/tools:$PROJ_ROOT/xform/src
+cd $PROJ_ROOT
+
+Notes for recurring deployment on existing EC2 instance - 
+----------------------
+1. Using code deploy on webconsole - create a new application (v2)
+2. create a new deployment group using existing ec2 key-value tags and ec2 deploy service role (v2-grp)
+3. create deployment -- it would go through or fail depending on appspec.yml
+Most likely it will fail in install stage.. go to below folder
+ /opt/codedeploy-agent/deployment-root
+ and identify recent deployment archive
+ for example below is the one i found with recent one
+ ./236c0f89-3cd1-4681-b1d7-a46c50314fa6/d-SPU500K70/deployment-archive
+
+All the code is present inside deployment-archive, pick and choose the one you want amd deploy
+
+
