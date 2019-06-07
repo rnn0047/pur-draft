@@ -35,4 +35,4 @@ export PYTHONPATH=$PROJ_ROOT:$PROJ_ROOT/xform:$PROJ_ROOT/tools:$PROJ_ROOT/xform/
 #run app on localhost:5000 or localhost:8080 (check app.py and frontend/.env)
 cd $PROJ_ROOT
 python3 app.py
-[alt text](https://raw.githubusercontent.com/rnn0047/pur-draft/tiger-style.png)
+![alt text](tiger-style.png)
